@@ -662,7 +662,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    with sqlite3.connect("wefttrack.sqlite3") as db:
+    with closing(sqlite3.connect("wefttrack.sqlite3")) as db, db:
         initialize(db)
         db.commit()
         db.executescript(MANAGEMENT_SCHEMA)
@@ -671,7 +671,7 @@ if __name__ == "__main__":
             if project_file.is_file():
                 with closing(sqlite3.connect(project_file)) as board, board:
                     initialize(board)
-    with sqlite3.connect("wefttrack-example.sqlite3") as db:
+    with closing(sqlite3.connect("wefttrack-example.sqlite3")) as db, db:
         initialize(db)
         seed_example(db)
     HTTPServer(("127.0.0.1", 8090), Handler).serve_forever()

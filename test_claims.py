@@ -1,6 +1,7 @@
 """Regression coverage for queue selection and concurrent ownership."""
 import concurrent.futures
 import sqlite3
+from contextlib import closing
 import tempfile
 import threading
 import unittest
@@ -14,11 +15,11 @@ class ClaimTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.database = Path(directory.name) / "workspace.sqlite3"
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             initialize(db)
 
     def request(self, method, path, data, actor="Mina"):
-        with sqlite3.connect(self.database) as db:
+        with closing(sqlite3.connect(self.database)) as db, db:
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys=ON")
             db.execute("BEGIN IMMEDIATE")

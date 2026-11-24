@@ -1,5 +1,6 @@
 """Personal board filters are durable, private preferences scoped to one project database."""
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,12 +14,12 @@ class SavedFilterTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         for project in ("alpha", "beta"):
-            with sqlite3.connect(self.root / project) as db:
+            with closing(sqlite3.connect(self.root / project)) as db, db:
                 initialize(db)
         self.filter = {"name": "My exports", "query": "  export ", "scope": "mine"}
 
     def call(self, method, path, data=None, member="m1", project="alpha"):
-        with sqlite3.connect(self.root / project) as db:
+        with closing(sqlite3.connect(self.root / project)) as db, db:
             db.row_factory = sqlite3.Row
             return dispatch(db, method, path, data or {}, "Member", member, "browser", "viewer")[1]
 

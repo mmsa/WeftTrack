@@ -1,6 +1,7 @@
 """Cross-project search scope, matching and result context."""
 import os
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 
@@ -14,7 +15,7 @@ class SearchTests(unittest.TestCase):
         self.addCleanup(os.chdir, os.getcwd())
         os.chdir(directory.name)
         for path in ("wefttrack.sqlite3", "wefttrack-example.sqlite3", project_database("a"), project_database("b")):
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.row_factory = sqlite3.Row
                 initialize(db)
                 dispatch(db, "POST", "/work", {"title": "Shared Café", "assignee": "Alex"})
@@ -35,7 +36,7 @@ class SearchTests(unittest.TestCase):
             self.assertTrue(all(r["number"] == 1 for r in found["items"]))
 
     def test_context_and_matching(self):
-        with sqlite3.connect(project_database("a")) as db:
+        with closing(sqlite3.connect(project_database("a"))) as db, db:
             db.row_factory = sqlite3.Row
             target = db.execute("SELECT id FROM nodes").fetchone()[0]
             blocker = dispatch(db, "POST", "/work", {"title":"Handle 50% of tests"})[1]
@@ -54,7 +55,7 @@ class SearchTests(unittest.TestCase):
             search_workspaces(self.catalog, None, "x" * 161)
 
     def test_result_limit_preserves_best_matches(self):
-        with sqlite3.connect("wefttrack-example.sqlite3") as db:
+        with closing(sqlite3.connect("wefttrack-example.sqlite3")) as db, db:
             db.row_factory = sqlite3.Row
             for i in range(46):
                 dispatch(db, "POST", "/work", {"title":"Batch " + str(i)})
