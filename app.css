@@ -1065,7 +1065,7 @@ dialog::backdrop {
 
 .status-pill {
   background: var(--tint,#ecf0ea);
-  color: var(--tone,#5e7062);
+  color: #304239;
 }
 
 .detail-block {
