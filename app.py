@@ -2,6 +2,7 @@
 import json
 import sqlite3
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from uuid import uuid4
 
 SCHEMA = """
@@ -69,6 +70,7 @@ def add_edge(db, data):
 def dispatch(db, method, path, data):
     if method == "GET" and path == "/graph":
         return 200, {
+            "transitions": {status: sorted(targets) for status, targets in TRANSITIONS.items()},
             "nodes": [dict(row) for row in db.execute("SELECT * FROM nodes ORDER BY id")],
             "edges": [dict(row) for row in db.execute("SELECT * FROM edges ORDER BY source, target, kind")],
         }
@@ -101,7 +103,25 @@ def dispatch(db, method, path, data):
     raise LookupError("Endpoint does not exist")
 
 
+STATIC_FILES = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/ui.js": ("ui.js", "text/javascript; charset=utf-8"),
+}
+
+
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path not in STATIC_FILES:
+            self.handle_request()
+            return
+        filename, content_type = STATIC_FILES[self.path]
+        payload = Path(__file__).with_name(filename).read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def handle_request(self):
         db = sqlite3.connect("wefttrack.sqlite3")
         db.row_factory = sqlite3.Row
@@ -131,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    do_GET = do_POST = do_PUT = do_PATCH = handle_request
+    do_POST = do_PUT = do_PATCH = handle_request
 
 
 if __name__ == "__main__":

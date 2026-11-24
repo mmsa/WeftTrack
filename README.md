@@ -2,7 +2,9 @@
 
 WeftTrack is an open-source work tracker prototype. **WeftForge** is the proposed name for the companion Git hosting project being developed separately.
 
-Run with Python 3.9+ and SQLite 3.24+:
+Run with Python 3.9+ and SQLite 3.24+, then open [WeftTrack](http://127.0.0.1:8090/) in your browser. The board lets you add work items, move them through allowed states, register code changes, and create and inspect relationships.
+
+The same server exposes a JSON API:
 
 ```sh
 python3 app.py
