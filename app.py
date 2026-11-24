@@ -5,6 +5,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from uuid import uuid4
 
+from example import seed_example
+
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS nodes (
@@ -71,7 +73,7 @@ def dispatch(db, method, path, data):
     if method == "GET" and path == "/graph":
         return 200, {
             "transitions": {status: sorted(targets) for status, targets in TRANSITIONS.items()},
-            "nodes": [dict(row) for row in db.execute("SELECT * FROM nodes ORDER BY id")],
+            "nodes": [dict(row) for row in db.execute("SELECT rowid AS number, * FROM nodes ORDER BY rowid")],
             "edges": [dict(row) for row in db.execute("SELECT * FROM edges ORDER BY source, target, kind")],
         }
     if method == "POST" and path == "/work":
@@ -105,6 +107,7 @@ def dispatch(db, method, path, data):
 
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.css": ("app.css", "text/css; charset=utf-8"),
     "/ui.js": ("ui.js", "text/javascript; charset=utf-8"),
 }
 
@@ -123,7 +126,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def handle_request(self):
-        db = sqlite3.connect("wefttrack.sqlite3")
+        example = self.path.startswith("/example/")
+        path = self.path.removeprefix("/example") if example else self.path
+        db = sqlite3.connect("wefttrack-example.sqlite3" if example else "wefttrack.sqlite3")
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
         try:
@@ -135,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Expected a JSON object")
             with db:
                 db.execute("BEGIN" if self.command == "GET" else "BEGIN IMMEDIATE")
-                status, result = dispatch(db, self.command, self.path, data)
+                status, result = dispatch(db, self.command, path, data)
         except ValueError as error:
             status, result = 400, {"error": str(error)}
         except LookupError as error:
@@ -157,4 +162,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     with sqlite3.connect("wefttrack.sqlite3") as db:
         db.executescript(SCHEMA)
+    with sqlite3.connect("wefttrack-example.sqlite3") as db:
+        db.executescript(SCHEMA)
+        seed_example(db)
     HTTPServer(("127.0.0.1", 8090), Handler).serve_forever()

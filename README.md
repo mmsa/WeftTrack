@@ -4,6 +4,8 @@ WeftTrack is an open-source work tracker prototype. **WeftForge** is the propose
 
 Run with Python 3.9+ and SQLite 3.24+, then open [WeftTrack](http://127.0.0.1:8090/) in your browser. The board lets you add work items, move them through allowed states, register code changes, and create and inspect relationships.
 
+The first visit opens **Example project** when your local board is empty. The workspace selector switches to **My workspace** and remembers your choice in this browser. Example edits are saved in `wefttrack-example.sqlite3`. Your existing work stays in `wefttrack.sqlite3`. Select a card to move it or inspect its links. In the relationship map, select a neighbor to follow its connections.
+
 The same server exposes a JSON API:
 
 ```sh

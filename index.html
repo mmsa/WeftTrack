@@ -1,75 +1,43 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WeftTrack</title>
-<style>
-:root { color-scheme: light; font: 16px system-ui, sans-serif; color: #202929; background: #f4f6f3 }
-* { box-sizing: border-box }
-body { margin: 0 }
-header { background: #183b39; color: white; padding: 1.2rem max(5vw, 1rem); font-weight: 750; letter-spacing: .03em }
-main { max-width: 1350px; margin: auto; padding: 2rem max(3vw, 1rem) }
-h1 { margin: 0 0 1rem; font-size: 2.25rem }
-h2 { margin: 0 0 1rem; font-size: 1.2rem }
-h3 { margin: 0; font-size: .95rem }
-button, input, select { font: inherit; border: 1px solid #aebcb6; border-radius: .45rem; padding: .55rem .7rem; color: inherit; background: white }
-button { background: #18564d; color: white; cursor: pointer; border-color: transparent }
-button:hover { background: #123e38 }
-button:disabled { opacity: .55; cursor: wait }
-form { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem }
-label { display: grid; gap: .35rem; font-size: .875rem }
-input, select { width: 100%; min-width: 0 }
-#create label { flex: 1 1 16rem; max-width: 32rem }
-#notice { min-height: 1.5rem; color: #31534c }
-#notice[data-error] { color: #9e2621 }
-#board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; margin-bottom: 1.5rem }
-.lane { background: #e5ebe6; border-radius: .65rem; padding: .8rem; min-height: 9rem }
-.lane > h3 { display: flex; justify-content: space-between; margin-bottom: .75rem }
-.card { background: white; border: 1px solid #d4ded7; border-radius: .5rem; padding: .7rem; margin-top: .5rem }
-.card p { margin: 0 0 .7rem; font-weight: 600; overflow-wrap: anywhere }
-.panel { background: white; border: 1px solid #d4ded7; padding: 1rem; margin-bottom: 1rem; border-radius: .65rem }
-.relationship { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .65rem 0; border-bottom: 1px solid #e5ebe6; overflow-wrap: anywhere }
-.relationship span { min-width: 0 }
-.relationship strong { border-radius: 1rem; background: #e1efea; color: #194840; padding: .2rem .6rem; font-size: .8rem }
-.muted { color: #546761; font-size: .875rem }
-@media (max-width: 800px) { #board { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
-@media (max-width: 420px) { #board { grid-template-columns: 1fr } }
-</style>
-<header>WeftTrack</header>
-<main>
-<h1>Work board</h1>
-<form id="create">
-  <label>Work item title<input name="title" required placeholder="Add CSV export"></label>
-  <button>Add work item</button>
-</form>
-<p id="notice" role="status" aria-live="polite"></p>
-<section id="board" aria-label="Workflow board"></section>
-
-<section class="panel" aria-labelledby="relationships-heading">
-  <h2 id="relationships-heading">Relationships</h2>
-  <form id="link">
-    <label>Relationship<select name="kind">
-      <option value="blocks">Blocks</option>
-      <option value="parent_of">Is parent of</option>
-      <option value="implements">Implements</option>
-    </select></label>
-    <label>From<select name="source" required></select></label>
-    <label>To<select name="target" required></select></label>
-    <button>Add link</button>
-  </form>
-  <div id="relationships"></div>
-</section>
-
-<section class="panel" aria-labelledby="changes-heading">
-  <h2 id="changes-heading">Code changes</h2>
-  <form id="change">
-    <label>Title<input name="title" required placeholder="Implement CSV export"></label>
-    <label>Repository ID<input name="repository" required placeholder="weftforge:local:reports"></label>
-    <label>Change ID<input name="external_id" required placeholder="pull-request:42"></label>
-    <button>Save code change</button>
-  </form>
-  <ul id="changes"></ul>
-</section>
-</main>
-<script src="/ui.js" defer></script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#152d29">
+  <title>WeftTrack · Delivery board</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23152d29'/%3E%3Cpath d='m6 14 9 13 8-13m-7 0 9 13 9-13' fill='none' stroke='%23cbe99d' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/ui.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to workspace</a>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><svg viewBox="0 0 35 32" aria-hidden="true"><path d="m2 7 10 17L22 7m-10 0 10 17L32 7" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4.4"/></svg>WeftTrack</div>
+    <label class="workspace-select"><span class="overline">Workspace</span><span class="switch"><span class="space-icon" data-icon="layers"></span><select id="workspace" aria-label="Workspace"><option value="local">My workspace</option><option value="example">Example project</option></select><span data-icon="chevrons"></span></span></label>
+    <nav aria-label="Workspace views">
+      <a href="#board" data-view="board" aria-label="Delivery board"><span data-icon="board"></span><span class="nav-long">Delivery board</span><span class="nav-short" aria-hidden="true">Board</span></a>
+      <a href="#graph" data-view="graph" aria-label="Relationship map"><span data-icon="graph"></span><span class="nav-long">Relationship map</span><span class="nav-short" aria-hidden="true">Map</span></a>
+      <a href="#changes" data-view="changes" aria-label="Code changes"><span data-icon="code"></span><span class="nav-long">Code changes</span><span class="nav-short" aria-hidden="true">Changes</span></a>
+    </nav>
+    <div class="sidebar-footer"><span class="server-icon" data-icon="database"></span><div>Local workspace<small>SQLite storage</small></div></div>
+  </aside>
+  <div class="canvas">
+    <header class="topbar"><div class="breadcrumb"><span data-icon="layers"></span><span id="crumb-space">Workspace</span><span class="slash">/</span><strong id="crumb-view">Delivery board</strong></div><span class="connection"><i></i><span id="connection">Connecting</span></span></header>
+    <main id="main" tabindex="-1">
+      <section class="hero">
+        <div class="hero-copy"><div class="project-label"><i></i><span id="project">Workspace</span></div><h1 id="page-title">Delivery board</h1><div id="summary" class="summary"></div></div>
+        <svg class="weave" aria-hidden="true" viewBox="0 0 440 160" preserveAspectRatio="xMidYMid slice">
+          <defs><pattern id="dots" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".85" fill="#618d80" opacity=".43"/></pattern></defs>
+          <rect width="440" height="160" fill="url(#dots)"/><g id="threads" fill="none" stroke-width="2.6"></g>
+        </svg>
+      </section>
+      <section id="content" aria-label="Workspace content"></section>
+      <noscript>Enable JavaScript to use the work board.</noscript>
+    </main>
+  </div>
+</div>
+<dialog id="dialog" aria-labelledby="dialog-title"><div id="dialog-body"></div></dialog>
+<div id="notice" role="status" aria-live="polite"></div>
+</body>
 </html>
