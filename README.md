@@ -38,4 +38,4 @@ Before connecting separate deployments, add authenticated event delivery, a vers
 
 ## Reference
 
-[Jira reference and implementation roadmap](JIRA-REFERENCE.md).
+[WeftTrack roadmap](ROADMAP.md).
