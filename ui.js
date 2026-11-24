@@ -97,9 +97,12 @@ function message(text, error = false) {
   if (!error) noticeTimer = setTimeout(() => { $("#notice").textContent = ""; }, 4200);
 }
 
+function workspacePrefix(workspace) {
+  return workspace === "example" ? "/example" : workspace === "local" ? "" : "/projects/" + workspace;
+}
+
 async function request(workspace, path, method = "GET", body) {
-  const prefix = workspace === "example" ? "/example" : workspace === "local" ? "" : "/projects/" + workspace;
-  const response = await fetch(prefix + path, {
+  const response = await fetch(workspacePrefix(workspace) + path, {
     method, headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -1583,6 +1586,80 @@ function itemActivity(node) {
   return section;
 }
 
+function taskBrief(node, permalink) {
+  const claim = liveClaim(node);
+  const lines = [key(node) + " · " + node.title, "Workspace: " + workspaces[state.workspace],
+    "Status: " + lanes[node.status] + " · Priority: " + priorities[node.priority],
+    "Owner: " + (claim?.owner_name || node.assignee || "Unassigned"),
+    "Requirement: " + permalink.href];
+  if (claim) lines.push("Active claim: " + claim.owner_name + " (" + claim.source + ")");
+  const request = node.status === "review" || node.status === "done"
+    ? "Review the linked changes against this requirement. Identify any gaps and suggest a concrete way to verify the result."
+    : isBlocked(node) ? "Explain what is blocking this requirement and propose the next step to unblock it. Describe how to verify the eventual change."
+    : "Propose a focused change for this requirement and a concrete way to verify it. Identify any missing information before implementation.";
+  lines.unshift(request, "");
+  if (node.description) lines.push("", node.description);
+  const edges = relationList(node);
+  if (edges.length) lines.push("", "Related work");
+  for (const edge of edges) {
+    const outgoing = edge.source === node.id;
+    const other = nodes.get(outgoing ? edge.target : edge.source);
+    const detail = other.kind === "change" ? other.repository + " / " + other.external_id : lanes[other.status];
+    lines.push("• " + edgeLabels[edge.kind][outgoing ? 0 : 1] + ": " + key(other) + " · " + other.title + " (" + detail + ")");
+  }
+  return lines.join("\n");
+}
+
+function assistantTools(node, permalink) {
+  const area = el("div", null, "assistant-tools");
+  const copy = button("Copy task brief", "btn", async () => {
+    const text = taskBrief(node, permalink);
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = "Brief copied";
+    } catch {
+      let field = area.querySelector("textarea");
+      if (!field) {
+        field = el("textarea");
+        field.readOnly = true;
+        field.rows = 6;
+        field.setAttribute("aria-label", "Task brief to copy");
+        area.append(field);
+      }
+      field.value = text;
+      field.focus();
+      field.select();
+    }
+  });
+  const details = el("details", null, "task-commands");
+  details.append(el("summary", "CLI & API"));
+  const prefix = workspacePrefix(state.workspace);
+  const cli = "python3 agent.py --workspace " + state.workspace;
+  const endpoint = location.origin + prefix;
+  const read = cli + " show " + node.id;
+  const auth = ' -H "Authorization: Bearer $WEFTTRACK_ACCESS_CODE"';
+  function command(label, snippet) {
+    details.append(el("strong", label), el("pre", snippet));
+  }
+  const needsAuth = settings.configured && state.workspace !== "example";
+  command("Read this requirement", read + "\n" + "curl" + (needsAuth ? auth : "") + " " + endpoint + "/work/" + node.id);
+  const own = [...claimsByItem.values()].find(item => item.owner_id === settings.actor?.id);
+  const claim = liveClaim(node);
+  if (mayEdit() && settings.configured && canPull(node) && !own) {
+    command("Claim this requirement", cli + " claim --item " + node.id);
+    details.append(el("p", "Run with the editor’s own access code. WeftTrack checks eligibility when the command runs.", "detail-info"));
+  } else if (mayEdit() && settings.configured && claim && claim.owner_id === settings.actor.id) {
+    command("Submit your claim", cli + " report " + claim.id +
+      ' --summary "RESULT SUMMARY" --repository "REPOSITORY" --external-id "CHANGE ID" --title "CHANGE TITLE"');
+    details.append(el("p", "Use the claiming account’s access code and replace the example result fields.", "detail-info"));
+  }
+  if (needsAuth) details.append(el("p", "Set WEFTTRACK_ACCESS_CODE in the shell environment before running these commands.", "detail-info"));
+  const handoff = el("div", null, "brief-handoff");
+  handoff.append(copy, el("small", "Paste the brief into your coding assistant’s chat.", "detail-info"));
+  area.append(handoff, details);
+  return area;
+}
+
 function showDetails(id) {
   if (new URLSearchParams(location.search).get("item") === id) $("#dialog").dataset.linkedItem = id;
   const node = nodes.get(id);
@@ -1647,6 +1724,7 @@ function showDetails(id) {
   linkActions.append(copyLink);
   content.append(linkActions);
   if (node.kind !== "work") return;
+  content.append(assistantTools(node, permalink));
   if (!mayEdit()) {
     if (settings.actor) content.append(itemActivity(node));
     return;

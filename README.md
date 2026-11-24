@@ -37,6 +37,10 @@ The main workspace uses `wefttrack.sqlite3`, the sample uses `wefttrack-example.
 
 ## Agent CLI
 
+Open any requirement and choose **Copy task brief** to copy the title, description, status, owner, permalink, and linked work into your coding assistant. Under **CLI & API**, the read commands target that exact requirement and workspace. Eligible editors also see a targeted claim command. Once claimed, the claimant can see the report command. The brief and the read commands leave ownership unchanged.
+
+For a read-only JSON view, run `python3 agent.py --workspace PROJECT_ID show WORK_UUID` or use `GET /projects/{id}/work/{uuid}`. Both return the item, active claim attribution, and its direct relationships. Private workspaces require a member access code after setup.
+
 Create a dedicated editor in **Users**. Supply its access code through the `WEFTTRACK_ACCESS_CODE` environment variable in the shell running the CLI. Keep the server running in another terminal. The CLI returns JSON.
 
 ```sh
@@ -67,6 +71,7 @@ Routes below use the main workspace. Prefix workspace routes with `/example` or 
 
 | Method and route | Behavior |
 | --- | --- |
+| `GET /work/{id}` | Read one requirement, its current claim attribution, and directly related work and changes. |
 | `POST /work` | Create a requirement from a `title`. Returns a stable UUID. |
 | `PATCH /work/{id}` | Update work fields or take an allowed status transition. An optional `expected` object checks the original values of the fields being edited. |
 | `PUT /changes` | Register a change with `repository`, `external_id` and `title`. Reusing the same repository and external ID preserves the change UUID. |

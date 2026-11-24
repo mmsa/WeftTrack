@@ -426,6 +426,19 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         return 200, {}
     if method == "POST" and path.startswith("/claims/"):
         return pull_work(db, path, data, actor, member, source, role)
+    work_read = re.fullmatch(r"/work/([^/]+)", path)
+    if method == "GET" and work_read:
+        item = db.execute("SELECT rowid AS number,* FROM nodes WHERE id=? AND kind='work'", (work_read[1],)).fetchone()
+        if not item:
+            raise LookupError("Work item not found")
+        claim = db.execute("SELECT owner_name,source,claimed_at FROM claims WHERE item=? AND closed_at IS NULL",
+                           (item["id"],)).fetchone()
+        links = db.execute("""SELECT e.kind AS relationship,e.source,e.target,n.id,n.kind,n.rowid AS number,
+                   n.title,n.status,n.repository,n.external_id FROM edges e JOIN nodes n ON n.id=
+                   CASE WHEN e.source=:id THEN e.target ELSE e.source END
+                   WHERE e.source=:id OR e.target=:id ORDER BY n.rowid,e.kind""", {"id": item["id"]})
+        return 200, {"item": dict(item), "claim": dict(claim) if claim else None,
+                     "related": [dict(link) for link in links]}
     timeline = re.fullmatch(r"/work/([^/]+)/activity", path)
     if timeline and method in {"GET", "POST"}:
         item = timeline[1]
@@ -613,7 +626,8 @@ class Handler(BaseHTTPRequestHandler):
                         settings.execute("BEGIN" if self.command == "GET" else "BEGIN IMMEDIATE")
                         status, result = management(settings, actor, self.command, path, data)
                 else:
-                    if not actor and not (example and self.command == "GET" and path == "/graph"):
+                    public_example_read = example and self.command == "GET" and (path == "/graph" or re.fullmatch(r"/work/[^/]+", path))
+                    if not actor and not public_example_read:
                         raise PermissionError("Sign in to access this workspace")
                     database = "wefttrack-example.sqlite3" if example else "wefttrack.sqlite3"
                     project = PROJECT_PATH.fullmatch(path) if not example else None
