@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#152d29">
-  <title>WeftTrack · Delivery board</title>
+  <title>WeftTrack · Requirements log</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23152d29'/%3E%3Cpath d='m6 14 9 13 8-13m-7 0 9 13 9-13' fill='none' stroke='%23cbe99d' stroke-width='4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/app.css">
   <script src="/ui.js" defer></script>
@@ -16,17 +16,20 @@
     <div class="brand"><svg viewBox="0 0 35 32" aria-hidden="true"><path d="m2 7 10 17L22 7m-10 0 10 17L32 7" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4.4"/></svg>WeftTrack</div>
     <label class="workspace-select"><span class="overline">Workspace</span><span class="switch"><span class="space-icon" data-icon="layers"></span><select id="workspace" aria-label="Workspace"><option value="local">My workspace</option><option value="example">Example project</option></select><span data-icon="chevrons"></span></span></label>
     <nav aria-label="Workspace views">
+      <a href="#requirements" data-view="requirements" aria-label="Requirements log"><span data-icon="list"></span><span class="nav-long">Requirements log</span><span class="nav-short" aria-hidden="true">Work log</span></a>
       <a href="#board" data-view="board" aria-label="Delivery board"><span data-icon="board"></span><span class="nav-long">Delivery board</span><span class="nav-short" aria-hidden="true">Board</span></a>
       <a href="#graph" data-view="graph" aria-label="Relationship map"><span data-icon="graph"></span><span class="nav-long">Relationship map</span><span class="nav-short" aria-hidden="true">Map</span></a>
+      <a href="#effort" data-view="effort" aria-label="Effort"><span data-icon="effort"></span><span>Effort</span></a>
       <a href="#changes" data-view="changes" aria-label="Code changes"><span data-icon="code"></span><span class="nav-long">Code changes</span><span class="nav-short" aria-hidden="true">Changes</span></a>
+      <a href="#users" data-view="users" aria-label="Users"><span data-icon="users"></span><span>Users</span></a>
+      <a href="#settings" data-view="settings" aria-label="Projects and team"><span data-icon="layers"></span><span class="nav-long">Projects &amp; team</span><span class="nav-short" aria-hidden="true">Settings</span></a>
     </nav>
-    <div class="sidebar-footer"><span class="server-icon" data-icon="database"></span><div>Local workspace<small>SQLite storage</small></div></div>
   </aside>
   <div class="canvas">
-    <header class="topbar"><div class="breadcrumb"><span data-icon="layers"></span><span id="crumb-space">Workspace</span><span class="slash">/</span><strong id="crumb-view">Delivery board</strong></div><span class="connection"><i></i><span id="connection">Connecting</span></span></header>
+    <header class="topbar"><div class="breadcrumb"><span data-icon="layers"></span><span id="crumb-space">Workspace</span><span class="slash">/</span><strong id="crumb-view">Requirements log</strong></div><div class="topbar-tools"><button id="global-search" type="button" aria-label="Search requirements" aria-keyshortcuts="Control+k Meta+k"><span data-icon="search"></span><span class="search-caption">Search requirements</span><kbd id="search-shortcut">Ctrl K</kbd></button><span class="connection"><i></i><span id="connection">Connecting</span></span></div></header>
     <main id="main" tabindex="-1">
       <section class="hero">
-        <div class="hero-copy"><div class="project-label"><i></i><span id="project">Workspace</span></div><h1 id="page-title">Delivery board</h1><div id="summary" class="summary"></div></div>
+        <div class="hero-copy"><div class="project-label"><i></i><span id="project">Workspace</span></div><h1 id="page-title">Requirements log</h1><div id="summary" class="summary"></div></div>
         <svg class="weave" aria-hidden="true" viewBox="0 0 440 160" preserveAspectRatio="xMidYMid slice">
           <defs><pattern id="dots" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".85" fill="#618d80" opacity=".43"/></pattern></defs>
           <rect width="440" height="160" fill="url(#dots)"/><g id="threads" fill="none" stroke-width="2.6"></g>
