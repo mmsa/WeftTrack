@@ -162,7 +162,8 @@ async function load(workspace, focusId = null) {
     graph = data;
     claimsByItem = new Map((data.claims || []).filter(claim => !claim.closed_at).map(claim => [claim.item, claim]));
     nodes = new Map(graph.nodes.map(node => [node.id, node]));
-    if (nodes.has(focusId)) state.focus = focusId;
+    const canonicalFocus = data.change_aliases?.[focusId] || focusId;
+    if (nodes.has(canonicalFocus)) state.focus = canonicalFocus;
     adjacent = new Map(graph.nodes.map(node => [node.id, []]));
     for (const edge of graph.edges) {
       adjacent.get(edge.source)?.push(edge);
@@ -592,7 +593,7 @@ function claimForm(claim, release) {
     summary.maxLength = 4000;
     form.append(field("Result summary", "summary", summary),
       field("Change title", "title", textInput("Describe the delivered change")),
-      field("Repository", "repository", textInput("e.g. freethegit:team/export")),
+      field("Repository", "repository", textInput("e.g. weftgit:team/export")),
       field("Change ID", "external_id", textInput("e.g. pr:42")));
   }
   const error = el("p", "", "dialog-error");
@@ -1081,28 +1082,28 @@ function renderChanges(content) {
   const changes = graph.nodes.filter(n => n.kind === "change");
   const feed = el("div", null, "panel hosted-feed");
   const refresh = button("Refresh commits", "btn", readCommits);
-  content.append(toolbar("FreeTheGit commits", 0, [refresh]), feed);
+  content.append(toolbar("WeftGit commits", 0, [refresh]), feed);
   const commitCount = $("#view-count");
   readCommits();
 
   async function readCommits() {
     refresh.disabled = true;
-    feed.replaceChildren(el("p", "Reading FreeTheGit repositories…", "empty"));
+    feed.replaceChildren(el("p", "Reading WeftGit repositories…", "empty"));
     try {
-      const { connected, repositories } = await request(state.workspace, "/freethegit");
+      const { connected, repositories } = await request(state.workspace, "/weftgit");
       if (!feed.isConnected) return;
       commitCount.textContent = repositories.reduce((count, repo) => count + repo.commits.length, 0);
       feed.replaceChildren();
       if (!connected || !repositories.length) {
-        feed.append(el("p", connected ? "Create a repository in FreeTheGit and push a commit to see it here." :
-          "The local FreeTheGit repository directory could not be found.", "empty"));
+        feed.append(el("p", connected ? "Create a repository in WeftGit and push a commit to see it here." :
+          "The local WeftGit repository directory could not be found.", "empty"));
       }
       for (const repo of repositories) {
         const section = el("section", null, "hosted-repo");
         const heading = el("h3");
         const repoLink = el("a", repo.name);
         repoLink.href = "http://127.0.0.1:8091/hosted?" + new URLSearchParams({ repo: repo.name, view: "source" });
-        repoLink.title = "Browse " + repo.name + " in FreeTheGit";
+        repoLink.title = "Browse " + repo.name + " in WeftGit";
         heading.append(repoLink);
         section.append(heading);
         if (!repo.commits.length) section.append(el("p", repo.error || "No commits pushed yet.", "detail-info"));
@@ -1113,7 +1114,7 @@ function renderChanges(content) {
           const date = new Date(commit.date);
           const caption = commit.sha.slice(0, 8) + (Number.isNaN(date.valueOf()) ? "" : " · " + date.toLocaleDateString());
           text.append(el("strong", title), el("small", caption));
-          const change = changes.find(node => node.repository === "freethegit:" + repo.name &&
+          const change = changes.find(node => node.repository === "weftgit:" + repo.name &&
             node.external_id === "commit:" + commit.sha);
           if (change) {
             const linked = el("div", null, "actions");
@@ -1145,7 +1146,7 @@ function renderChanges(content) {
   if (!changes.length) panel.append(el("p", "Register a code change to connect it to a work item.", "empty"));
   for (const item of changes) {
     const row = el("div", null, "registry-row");
-    const hosted = item.repository.startsWith("freethegit:") && item.external_id.startsWith("commit:");
+    const hosted = item.repository.startsWith("weftgit:") && item.external_id.startsWith("commit:");
     const external = el("span", hosted ? item.external_id.slice(7, 15) : item.external_id, "key");
     external.title = item.external_id;
     row.append(entityButton(item), el("span", item.repository), external);
@@ -1175,7 +1176,7 @@ function linkHostedCommit(repository, commit) {
   form.append(field("Task", "target", target), errorBox, submit);
   form.onsubmit = event => {
     event.preventDefault();
-    save(submit, "/freethegit/links", "POST", { repository, sha: commit.sha, target: target.value },
+    save(submit, "/weftgit/links", "POST", { repository, sha: commit.sha, target: target.value },
       "Commit linked to task.", errorBox);
   };
   content.append(form);
@@ -1674,10 +1675,10 @@ function showDetails(id) {
   content.append(meta, el("h3", node.title, "detail-title"));
   if (node.kind === "change") {
     content.append(el("p", node.repository + " / " + node.external_id, "detail-info"));
-    const repo = /^freethegit:([a-z0-9][a-z0-9_-]{0,63}\/[a-z0-9][a-z0-9_-]{0,63})$/i.exec(node.repository);
+    const repo = /^weftgit:([a-z0-9][a-z0-9_-]{0,63}\/[a-z0-9][a-z0-9_-]{0,63})$/i.exec(node.repository);
     const pr = /^pr:([1-9]\d*)$/.exec(node.external_id);
     if (repo && pr) {
-      const review = el("a", "Open pull request #" + pr[1] + " in FreeTheGit", "btn");
+      const review = el("a", "Open pull request #" + pr[1] + " in WeftGit", "btn");
       review.href = "http://127.0.0.1:8091/hosted?" + new URLSearchParams({ repo: repo[1], pr: pr[1] });
       content.append(review);
     }
@@ -2048,8 +2049,16 @@ async function startWorkspace() {
     }
     const id = incoming.get("item");
     await load(targetWorkspace, id);
-    if (id && !nodes.has(id)) message("The linked item is unavailable in this workspace.", true);
-    else if (id && getView() === "board") showDetails(id);
+    const resolved = graph.change_aliases?.[id] || id;
+    if (id && !nodes.has(resolved)) message("The linked item is unavailable in this workspace.", true);
+    else if (id && getView() === "board") {
+      if (resolved !== id) {
+        const url = new URL(location.href);
+        url.searchParams.set("item", resolved);
+        history.replaceState(null, "", url);
+      }
+      showDetails(resolved);
+    }
     return;
   }
   let storedWorkspace;

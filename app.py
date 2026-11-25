@@ -16,10 +16,18 @@ from uuid import uuid4
 
 from example import seed_example
 
-FREETHEGIT_ROOT = Path(os.environ.get(
-    "FREETHEGIT_REPOSITORIES",
-    Path(__file__).resolve().parent.parent / "freethegit" / ".repositories",
-)).resolve()
+def repository_root(parent):
+    configured = os.environ.get("WEFTGIT_REPOSITORIES") or os.environ.get("FREETHEGIT_REPOSITORIES")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    for name in ("WeftGit", "weftgit", "freethegit"):
+        candidate = parent / name / ".repositories"
+        if candidate.is_dir():
+            return candidate.resolve()
+    return (parent / "WeftGit" / ".repositories").resolve()
+
+
+WEFTGIT_ROOT = repository_root(Path(__file__).resolve().parent.parent)
 REPO_SLUG = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}")
 COMMIT_ID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 PROJECT_PATH = re.compile(r"/projects/([0-9a-f]{32})(/.*)")
@@ -161,10 +169,10 @@ def management(db, actor, method, path, data):
 def hosted_repository(name):
     parts = name.split("/")
     if len(parts) != 2 or not all(REPO_SLUG.fullmatch(part) for part in parts):
-        raise ValueError("Invalid FreeTheGit repository")
-    repo = FREETHEGIT_ROOT / parts[0] / (parts[1] + ".git")
+        raise ValueError("Invalid WeftGit repository")
+    repo = WEFTGIT_ROOT / parts[0] / (parts[1] + ".git")
     if repo.resolve() != repo or not (repo / "HEAD").is_file():
-        raise LookupError("FreeTheGit repository not found")
+        raise LookupError("WeftGit repository not found")
     return repo
 
 
@@ -180,7 +188,7 @@ def git_commits(repo, *revisions):
 
 def hosted_changes():
     repositories = []
-    for path in sorted(FREETHEGIT_ROOT.glob("*/*.git")):
+    for path in sorted(WEFTGIT_ROOT.glob("*/*.git")):
         name = path.parent.name + "/" + path.stem
         try:
             repo = hosted_repository(name)
@@ -191,7 +199,7 @@ def hosted_changes():
             repositories.append({"name": name, "commits": commits})
         except (OSError, subprocess.SubprocessError):
             repositories.append({"name": name, "error": "Commit history unavailable", "commits": []})
-    return {"connected": FREETHEGIT_ROOT.is_dir(), "repositories": repositories}
+    return {"connected": WEFTGIT_ROOT.is_dir(), "repositories": repositories}
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -207,6 +215,9 @@ CREATE TABLE IF NOT EXISTS nodes (
 CREATE TABLE IF NOT EXISTS saved_filters (
     id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL COLLATE NOCASE,
     query TEXT NOT NULL, scope TEXT NOT NULL, UNIQUE(owner,name)
+);
+CREATE TABLE IF NOT EXISTS change_aliases (
+    old_id TEXT PRIMARY KEY, change_id TEXT NOT NULL REFERENCES nodes(id)
 );
 CREATE TABLE IF NOT EXISTS captures (
     owner TEXT NOT NULL, token TEXT NOT NULL, item TEXT NOT NULL REFERENCES nodes(id),
@@ -249,9 +260,36 @@ WORK_FIELDS = {
 }
 
 
+def canonical_repository(value):
+    if value.startswith("freethegit:"):
+        return "weftgit:" + value.removeprefix("freethegit:")
+    return value
+
+
+def migrate_hosted_changes(db):
+    legacy = db.execute("""SELECT rowid,id,repository,external_id FROM nodes
+        WHERE kind='change' AND repository GLOB 'freethegit:*' ORDER BY rowid""").fetchall()
+    for number, original, repository, external in legacy:
+        name = canonical_repository(repository)
+        duplicate = db.execute("SELECT rowid,id FROM nodes WHERE repository=? AND external_id=?", (name, external)).fetchone()
+        if duplicate:
+            # Retain the earlier work key and resolve links using either former UUID.
+            keep, drop = (original, duplicate[1]) if number < duplicate[0] else (duplicate[1], original)
+            db.execute("""INSERT OR IGNORE INTO edges(source,target,kind)
+                SELECT ?,target,kind FROM edges WHERE source=?""", (keep, drop))
+            db.execute("DELETE FROM edges WHERE source=?", (drop,))
+            db.execute("UPDATE claims SET result_change=? WHERE result_change=?", (keep, drop))
+            db.execute("UPDATE change_aliases SET change_id=? WHERE change_id=?", (keep, drop))
+            db.execute("INSERT INTO change_aliases VALUES(?,?)", (drop, keep))
+            db.execute("DELETE FROM nodes WHERE id=?", (drop,))
+            original = keep
+        db.execute("UPDATE nodes SET repository=? WHERE id=?", (name, original))
+
+
 def initialize(db):
     db.executescript(SCHEMA)
     db.execute("BEGIN IMMEDIATE")
+    migrate_hosted_changes(db)
     if "fingerprint" not in {column[1] for column in db.execute("PRAGMA table_info(captures)")}:
         db.execute("ALTER TABLE captures ADD COLUMN fingerprint TEXT")
     columns = {column[1] for column in db.execute("PRAGMA table_info(nodes)")}
@@ -287,6 +325,9 @@ def required(data, key):
 
 def add_edge(db, data):
     source, target, kind = (required(data, key) for key in ("source", "target", "kind"))
+    alias = db.execute("SELECT change_id FROM change_aliases WHERE old_id=?", (source,)).fetchone()
+    if alias:
+        source = alias[0]
     expected = {"blocks": ("work", "work"), "parent_of": ("work", "work"),
                 "implements": ("change", "work")}.get(kind)
     nodes = [db.execute("SELECT kind FROM nodes WHERE id = ?", (node,)).fetchone()
@@ -361,6 +402,7 @@ def pull_work(db, path, data, name, member, source, role):
     if action == "report":
         summary = required(data, "summary")
         evidence = {field: required(data, field) for field in ("repository", "external_id", "title")}
+        evidence["repository"] = canonical_repository(evidence["repository"])
         if len(summary) > 4000:
             raise ValueError("Result summary exceeds 4000 characters")
     if claim["closed_at"]:
@@ -456,9 +498,9 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         return 200, {"events": [dict(row) for row in db.execute(
             "SELECT seq,actor,kind,body,created FROM activity WHERE item=? ORDER BY seq DESC", (item,))]}
 
-    if method == "GET" and path == "/freethegit":
+    if method == "GET" and path in {"/weftgit", "/freethegit"}:
         return 200, hosted_changes()
-    if method == "POST" and path == "/freethegit/links":
+    if method == "POST" and path in {"/weftgit/links", "/freethegit/links"}:
         repository, sha, target = (required(data, key) for key in ("repository", "sha", "target"))
         if not COMMIT_ID.fullmatch(sha):
             raise ValueError("Invalid commit ID")
@@ -466,11 +508,11 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         try:
             commits = git_commits(repo, "--max-count=1", sha)
         except (OSError, subprocess.SubprocessError):
-            raise LookupError("Commit unavailable in FreeTheGit")
+            raise LookupError("Commit unavailable in WeftGit")
         if not commits or commits[0]["sha"] != sha:
             raise LookupError("Commit not found")
         _, change = dispatch(db, "PUT", "/changes", {
-            "repository": "freethegit:" + repository, "external_id": "commit:" + sha,
+            "repository": "weftgit:" + repository, "external_id": "commit:" + sha,
             "title": commits[0]["title"].strip() or "Commit " + sha[:8],
         })
         source = change["id"]
@@ -482,6 +524,7 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         return 200, {
             "transitions": {status: sorted(targets) for status, targets in TRANSITIONS.items()},
             "nodes": [dict(row) for row in db.execute("SELECT rowid AS number,* FROM nodes ORDER BY rowid")],
+            "change_aliases": dict(db.execute("SELECT old_id,change_id FROM change_aliases")),
             "saved_filters": [dict(row) for row in db.execute(
                 "SELECT id,name,query,scope FROM saved_filters WHERE owner=? ORDER BY name", (member,))] if member else [],
             "claims": [dict(row) for row in db.execute("SELECT * FROM claims ORDER BY rowid")],
@@ -507,7 +550,7 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
             db.execute("INSERT INTO captures(owner,token,item,fingerprint) VALUES(?,?,?,?)", (member, token, item["id"], fingerprint))
         return 201, item
     if method == "PUT" and path == "/changes":
-        repository = required(data, "repository")
+        repository = canonical_repository(required(data, "repository"))
         external_id = required(data, "external_id")
         db.execute("""
             INSERT INTO nodes(id, kind, title, repository, external_id) VALUES (?, 'change', ?, ?, ?)

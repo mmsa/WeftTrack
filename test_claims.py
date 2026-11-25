@@ -61,7 +61,7 @@ class ClaimTests(unittest.TestCase):
         owner = claim["owner_name"]
         self.assertEqual(self.request("POST", "/claims/next", {}, owner)["claim"], claim)
         report = "/claims/" + claim["id"] + "/report"
-        body = {"title": "Reviewed export", "summary": "Export verified", "repository": "freethegit:team/export", "external_id": "pr:1"}
+        body = {"title": "Reviewed export", "summary": "Export verified", "repository": "weftgit:team/export", "external_id": "pr:1"}
         with self.assertRaises(PermissionError):
             self.request("POST", report, body, "Someone else")
         with self.assertRaises(ClaimConflict):

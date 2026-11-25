@@ -18,7 +18,7 @@ class TaskBriefTests(unittest.TestCase):
     def test_task_context_preserves_relationship_direction_and_claim(self):
         task = self.call("POST", "/work", title="Ship search", description="Match issue keys")["id"]
         downstream = self.call("POST", "/work", title="Publish docs")["id"]
-        change = self.call("PUT", "/changes", title="Wire search", repository="freethegit:team/repo", external_id="pr:5")["id"]
+        change = self.call("PUT", "/changes", title="Wire search", repository="weftgit:team/repo", external_id="pr:5")["id"]
         unrelated = self.call("POST", "/work", title="Unrelated")["id"]
         self.call("POST", "/links", source=task, target=downstream, kind="blocks")
         self.call("POST", "/links", source=change, target=task, kind="implements")

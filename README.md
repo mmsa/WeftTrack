@@ -54,20 +54,22 @@ Use the returned claim ID to report the change and send the work to review.
 ```sh
 python3 agent.py report CLAIM_ID \
   --summary "Added coverage for empty CSV exports" \
-  --repository freethegit:team/repo \
+  --repository weftgit:team/repo \
   --external-id pr:1 \
   --title "Cover empty CSV exports"
 ```
 
 Use `python3 agent.py release CLAIM_ID` to return unfinished work. To choose another workspace, place `--workspace example` or `--workspace PROJECT_ID` before the command. Repeating a claim request resumes your active claim.
 
-## FreeTheGit
+## WeftGit
 
-Pair WeftTrack with its companion local Git host to follow a requirement into code review. [FreeTheGit on GitHub](https://github.com/mmsa/freethegit)
+Pair WeftTrack with its companion local Git host to follow a requirement into code review. [WeftGit on GitHub](https://github.com/mmsa/WeftGit)
 
-**Code changes** reads the 20 most recent commits across refs in each locally hosted FreeTheGit repository. Install Git for this integration. The default repository root is `../freethegit/.repositories` relative to the WeftTrack source. To choose another directory, set `FREETHEGIT_REPOSITORIES` when starting WeftTrack.
+**Code changes** reads the 20 most recent commits across refs in each locally hosted WeftGit repository. Install Git for this integration. The default repository root is `../WeftGit/.repositories` relative to the WeftTrack source. To choose another directory, set `WEFTGIT_REPOSITORIES` when starting WeftTrack.
 
-After a push, choose **Refresh commits**, then **Link task**. A single matching work key in the commit subject preselects the requirement. Open a linked FreeTheGit pull request from its change detail using a repository reference such as `freethegit:team/repo` and a change ID such as `pr:1`.
+Existing installations can keep using `FREETHEGIT_REPOSITORIES`, the sibling `freethegit/.repositories` directory, the `/freethegit` API routes, and `freethegit:` repository references. The new environment variable takes precedence. Startup updates stored repository references and retains existing task links and submitted results.
+
+After a push, choose **Refresh commits**, then **Link task**. A single matching work key in the commit subject preselects the requirement. Open a linked WeftGit pull request from its change detail using a repository reference such as `weftgit:team/repo` and a change ID such as `pr:1`.
 
 ## JSON API
 
