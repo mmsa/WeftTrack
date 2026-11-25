@@ -579,6 +579,19 @@ function canPull(node) {
     (!node.assignee || node.assignee.toLowerCase() === name);
 }
 
+function parseReviewLink(value, port) {
+  let link;
+  try { link = new URL(value); } catch { return null; }
+  const repo = link.searchParams.get("repo");
+  const pr = link.searchParams.get("pr");
+  if (link.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(link.hostname) ||
+      !["8091", String(port)].includes(link.port || "80") || link.username || link.password ||
+      link.pathname !== "/hosted" || link.searchParams.getAll("repo").length !== 1 ||
+      link.searchParams.getAll("pr").length !== 1 || !/^[a-z0-9][a-z0-9_-]{0,63}\/[a-z0-9][a-z0-9_-]{0,63}$/i.test(repo || "") ||
+      !/^[1-9][0-9]{0,17}$/.test(pr || "")) return null;
+  return {repository: "weftgit:" + repo, external_id: "pr:" + pr};
+}
+
 function claimForm(claim, release) {
   const node = nodes.get(claim.item);
   const action = release ? "Release claim" : "Submit result";
@@ -591,10 +604,28 @@ function claimForm(claim, release) {
     const summary = el("textarea");
     summary.rows = 3;
     summary.maxLength = 4000;
+    const reviewLink = textInput("Optional · paste a local review link");
+    reviewLink.type = "url";
+    const repository = textInput("e.g. weftgit:team/export");
+    const externalId = textInput("e.g. pr:42");
+    reviewLink.oninput = () => {
+      const value = reviewLink.value.trim();
+      const ref = parseReviewLink(value, settings.weftgit_port || 8091);
+      reviewLink.setCustomValidity(value && !ref ? "Paste a local WeftGit pull request URL, or clear this field and enter the repository and change ID." : "");
+      if (ref) {
+        repository.value = ref.repository;
+        externalId.value = ref.external_id;
+      }
+    };
+    repository.oninput = externalId.oninput = () => {
+      reviewLink.value = "";
+      reviewLink.setCustomValidity("");
+    };
     form.append(field("Result summary", "summary", summary),
       field("Change title", "title", textInput("Describe the delivered change")),
-      field("Repository", "repository", textInput("e.g. weftgit:team/export")),
-      field("Change ID", "external_id", textInput("e.g. pr:42")));
+      field("WeftGit pull request URL", "review_link", reviewLink, false),
+      field("Repository", "repository", repository),
+      field("Change ID", "external_id", externalId));
   }
   const error = el("p", "", "dialog-error");
   error.setAttribute("role", "alert");
@@ -604,8 +635,10 @@ function claimForm(claim, release) {
   form.append(error, buttons);
   form.onsubmit = event => {
     event.preventDefault();
+    const fields = new FormData(form);
+    fields.delete("review_link");
     save(submit, "/claims/" + claim.id + (release ? "/release" : "/report"), "POST",
-      Object.fromEntries(new FormData(form)), release ? "Claim released." : "Result linked and sent for review.", error);
+      Object.fromEntries(fields), release ? "Claim released." : "Result linked and sent for review.", error);
   };
   content.append(form);
   form.querySelector("textarea,button")?.focus();
@@ -1661,6 +1694,74 @@ function assistantTools(node, permalink) {
   return area;
 }
 
+function releaseReceipts(node) {
+  const workspace = state.workspace;
+  const section = el("section", null, "detail-block release-receipts");
+  const header = el("div", null, "receipt-header");
+  const refresh = button("Refresh receipts", "btn", load);
+  header.append(el("h3", "Release receipts"), refresh);
+  const status = el("p", "", "detail-info");
+  status.setAttribute("role", "status");
+  const results = el("div", null, "receipt-results");
+  section.append(header, status, results);
+  function revision(label, sha) {
+    const row = el("div", null, "receipt-revision");
+    const code = el("code", sha);
+    row.append(el("span", label), code);
+    return row;
+  }
+  function renderReceipt(receipt) {
+    const card = el("article", null, "receipt-card");
+    const name = receipt.pr ? "PR #" + receipt.pr : "Commit " + receipt.commit.slice(0, 10);
+    card.append(el("strong", receipt.repo + " · " + name));
+    if (receipt.state !== "verified") {
+      card.append(el("b", receipt.state === "unavailable" ? "Evidence unavailable" : "No verified release"),
+        el("p", receipt.reason, "detail-info"));
+      return card;
+    }
+    card.append(el("b", "Verified release", "verified-release"));
+    const proof = el("details", null, "receipt-proof");
+    proof.append(el("summary", "Git evidence"));
+    if (receipt.pr) proof.append(revision("Reviewed commit", receipt.reviewed_sha), revision("Merged commit", receipt.merge_sha));
+    else proof.append(revision("Linked commit", receipt.commit));
+    for (const release of receipt.releases) {
+      const entry = el("div", null, "receipt-release");
+      entry.append(el("strong", release.environment), el("span", release.current ? "Current publication" : "Earlier publication"));
+      const date = el("time", release.published_at + " UTC");
+      date.dateTime = release.published_at.replace(" ", "T") + "Z";
+      entry.append(date, el("code", release.published_sha.slice(0, 12)));
+      const links = el("div", null, "receipt-links");
+      for (const [label, url] of [["Published archive", release.archive_url], ["Site at this revision", release.site_url], ["Open site", release.environment_url]]) {
+        if (!url) continue;
+        const link = el("a", label);
+        link.href = url;
+        links.append(link);
+      }
+      entry.append(links);
+      card.append(entry);
+      proof.append(revision(release.environment + " publication", release.published_sha));
+    }
+    card.append(proof);
+    return card;
+  }
+  async function load() {
+    refresh.disabled = true;
+    status.textContent = "Checking linked changes…";
+    results.replaceChildren();
+    try {
+      const data = await request(workspace, "/work/" + node.id + "/release-receipts");
+      results.replaceChildren(...data.receipts.map(renderReceipt));
+      status.textContent = data.receipts.length ? "" : "No WeftGit pull requests or commits linked yet.";
+    } catch {
+      status.textContent = "Could not load release receipts. Refresh to try again.";
+    } finally {
+      refresh.disabled = false;
+    }
+  }
+  load();
+  return section;
+}
+
 function showDetails(id) {
   if (new URLSearchParams(location.search).get("item") === id) $("#dialog").dataset.linkedItem = id;
   const node = nodes.get(id);
@@ -1679,7 +1780,7 @@ function showDetails(id) {
     const pr = /^pr:([1-9]\d*)$/.exec(node.external_id);
     if (repo && pr) {
       const review = el("a", "Open pull request #" + pr[1] + " in WeftGit", "btn");
-      review.href = "http://127.0.0.1:8091/hosted?" + new URLSearchParams({ repo: repo[1], pr: pr[1] });
+      review.href = "http://127.0.0.1:" + (settings.weftgit_port || 8091) + "/hosted?" + new URLSearchParams({ repo: repo[1], pr: pr[1] });
       content.append(review);
     }
   }
@@ -1725,7 +1826,7 @@ function showDetails(id) {
   linkActions.append(copyLink);
   content.append(linkActions);
   if (node.kind !== "work") return;
-  content.append(assistantTools(node, permalink));
+  content.append(releaseReceipts(node), assistantTools(node, permalink));
   if (!mayEdit()) {
     if (settings.actor) content.append(itemActivity(node));
     return;

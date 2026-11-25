@@ -6,6 +6,15 @@ A local-first work tracker for people and coding agents. Capture a requirement, 
 
 ![WeftTrack delivery board showing requirements, blockers, and linked changes across four stages](docs/preview.png)
 
+<details>
+<summary>Watch a requirement reach staging (28 seconds)</summary>
+
+![Screen recording of a requirement being claimed in WeftTrack, reviewed and merged in WeftGit, and opened from its verified staging receipt](docs/requirement-to-staging.gif)
+
+The recording follows two local apps from the original requirement to the exact commit behind **Open site**. The published site is a static release note.
+
+</details>
+
 ## Quickstart
 
 You need Python 3.9+ with SQLite 3.24+ and a browser. WeftTrack uses the Python standard library.
@@ -69,7 +78,14 @@ Pair WeftTrack with its companion local Git host to follow a requirement into co
 
 Existing installations can keep using `FREETHEGIT_REPOSITORIES`, the sibling `freethegit/.repositories` directory, the `/freethegit` API routes, and `freethegit:` repository references. The new environment variable takes precedence. Startup updates stored repository references and retains existing task links and submitted results.
 
+When submitting a claimed result, paste its **WeftGit pull request URL** to fill the repository and change ID. You can also enter both fields manually.
+
 After a push, choose **Refresh commits**, then **Link task**. A single matching work key in the commit subject preselects the requirement. Open a linked WeftGit pull request from its change detail using a repository reference such as `weftgit:team/repo` and a change ID such as `pr:1`.
+
+Open a requirement’s **Release receipts** to check where its linked WeftGit changes shipped. Each verified receipt shows the environment, publication time in UTC, and downloadable archive. Expand **Git evidence** for the full revisions. A current publication with a site also links to the live environment. An earlier publication links to its archived revision.
+
+For a linked PR, WeftGit verifies its merge record and checks for a later publication from the target branch containing the merged commit. For a linked commit, it checks whether the publication contains that exact commit in its Git history. A completed requirement or merged PR can still have no verified release. If WeftGit is offline, use **Refresh receipts** once it is running. WeftTrack queries WeftGit on loopback port 8091. Set `WEFTGIT_PORT` on WeftTrack to match a custom local receipt service port.
+
 
 ## JSON API
 
@@ -79,6 +95,7 @@ Routes below use the main workspace. Prefix workspace routes with `/example` or 
 | --- | --- |
 | `GET /work/{id}` | Read one requirement, its current claim attribution, and directly related work and changes. |
 | `POST /work` | Create a requirement from a `title`. Returns a stable UUID. |
+| `GET /work/{id}/release-receipts` | Check release evidence for linked WeftGit PRs and commits in this workspace. Each receipt has a `verified`, `unverified`, or `unavailable` state. |
 | `PATCH /work/{id}` | Update work fields or take an allowed status transition. An optional `expected` object checks the original values of the fields being edited. |
 | `PUT /changes` | Register a change with `repository`, `external_id` and `title`. Reusing the same repository and external ID preserves the change UUID. |
 | `POST /links` | Link two node UUIDs using `source`, `target` and `kind`. |

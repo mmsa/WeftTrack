@@ -1567,3 +1567,26 @@ details[open] > summary.queue-heading::before { content: "▾"; }
 
 .brief-handoff { display: grid; justify-items: start; gap: 4px; }
 .brief-handoff .detail-info { margin: 0; font-size: 12px; }
+
+.receipt-header, .receipt-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.receipt-header { justify-content: space-between; }
+.receipt-results, .receipt-card, .receipt-release { display: grid; gap: 7px; }
+.receipt-card {
+  padding: 12px;
+  border: 1px solid #dbe2da;
+  border-radius: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.receipt-card .verified-release { color: #22583b; }
+.receipt-release { border-top: 1px solid #dbe2da; padding-top: 8px; }
+.receipt-release time, .receipt-revision span { color: var(--muted); }
+.receipt-links a { text-decoration: underline; }
+.receipt-proof summary { cursor: pointer; }
+.receipt-revision { display: grid; gap: 2px; padding-top: 6px; }
+.release-receipts > p:empty, .receipt-results:empty { display: none; }
