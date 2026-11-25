@@ -52,6 +52,21 @@ def project_database(project):
     return f"wefttrack-project-{project}.sqlite3"
 
 
+def unique_work_key(catalog, current_database, number):
+    # All real workspaces use the same numbered keys, even archived projects.
+    files = ["wefttrack.sqlite3", *(project_database(row[0]) for row in catalog.execute("SELECT id FROM projects"))]
+    for filename in files:
+        if filename == current_database:
+            continue
+        path = Path(filename)
+        if not path.is_file():
+            continue
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as other:
+            if other.execute("SELECT 1 FROM nodes WHERE rowid=? AND kind='work'", (number,)).fetchone():
+                return False
+    return True
+
+
 def search_workspaces(catalog, actor, query):
     if not isinstance(query, str) or len(query) > 160:
         raise ValueError("Search supports up to 160 characters")
@@ -458,7 +473,7 @@ def save_personal_filter(db, member, data):
     return 201, record
 
 
-def dispatch(db, method, path, data, actor="Local owner", member="local-owner", source="browser", role="owner"):
+def dispatch(db, method, path, data, actor="Local owner", member="local-owner", source="browser", role="owner", discover_key=None):
     if personal_filter_request(method, path):
         if not member:
             raise PermissionError("Sign in to manage saved filters")
@@ -470,7 +485,7 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         return pull_work(db, path, data, actor, member, source, role)
     receipt = re.fullmatch(r"/work/([^/]+)/release-receipts", path)
     if method == "GET" and receipt:
-        return 200, requirement_receipts(db, receipt[1])
+        return 200, requirement_receipts(db, receipt[1], discover_key)
     work_read = re.fullmatch(r"/work/([^/]+)", path)
     if method == "GET" and work_read:
         item = db.execute("SELECT rowid AS number,* FROM nodes WHERE id=? AND kind='work'", (work_read[1],)).fetchone()
@@ -690,7 +705,8 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute("PRAGMA foreign_keys = ON")
                         db.execute("BEGIN" if self.command == "GET" else "BEGIN IMMEDIATE")
                         status, result = dispatch(db, self.command, path, data, actor["name"] if actor else "",
-                            actor["id"] if actor else "", "agent API" if authorization else "browser", actor["role"] if actor else "")
+                            actor["id"] if actor else "", "agent API" if authorization else "browser", actor["role"] if actor else "",
+                            discover_key=None if example else lambda number: unique_work_key(settings, database, number))
                         if self.command == "POST" and path == "/claims/next":
                             workspace = project_id if project else "example" if example else "local"
                             result["url"] = f"http://{host}/?workspace={workspace}&item={result['item']['id']}#board"

@@ -1698,7 +1698,7 @@ function releaseReceipts(node) {
   const workspace = state.workspace;
   const section = el("section", null, "detail-block release-receipts");
   const header = el("div", null, "receipt-header");
-  const refresh = button("Refresh receipts", "btn", load);
+  const refresh = button("Refresh receipts", "btn", refreshReceipts);
   header.append(el("h3", "Release receipts"), refresh);
   const status = el("p", "", "detail-info");
   status.setAttribute("role", "status");
@@ -1713,25 +1713,37 @@ function releaseReceipts(node) {
   function renderReceipt(receipt) {
     const card = el("article", null, "receipt-card");
     const name = receipt.pr ? "PR #" + receipt.pr : "Commit " + receipt.commit.slice(0, 10);
-    card.append(el("strong", receipt.repo + " · " + name));
+    const staged = receipt.releases.find(r => r.environment === "staging");
+    let label = "No verified release";
+    if (receipt.state === "unavailable") label = "Delivery status unavailable";
+    else if (staged) label = staged.current ? "Published to staging" : "Previously published to staging";
+    else if (receipt.merge_verified && receipt.staging_status === "awaiting_staging") label = "Merged · Awaiting staging";
+    else if (receipt.state === "verified") label = "Verified release";
+    else if (receipt.review_state === "open") label = "Pull request open";
+    else if (receipt.review_state === "declined") label = "Pull request declined";
+    card.append(el("b", label, receipt.state === "verified" ? "verified-release" : "delivery-status"));
+    const identity = el(receipt.pr ? "a" : "strong", receipt.repo + " · " + name);
+    if (receipt.pr) identity.href = "http://127.0.0.1:" + (settings.weftgit_port || 8091) + "/hosted?" + new URLSearchParams({repo:receipt.repo, pr:receipt.pr});
+    card.append(identity);
+    if (receipt.discovered) card.append(el("small", "Matched " + key(node) + " in " + receipt.matched_in.join(" and ") + ".", "detail-info"));
     if (receipt.state !== "verified") {
-      card.append(el("b", receipt.state === "unavailable" ? "Evidence unavailable" : "No verified release"),
-        el("p", receipt.reason, "detail-info"));
+      if (receipt.merge_verified) card.append(revision("Merged commit", receipt.merge_sha));
+      else if (!["Pull request open", "Pull request declined"].includes(label)) card.append(el("p", receipt.reason, "detail-info"));
       return card;
     }
-    card.append(el("b", "Verified release", "verified-release"));
+
     const proof = el("details", null, "receipt-proof");
     proof.append(el("summary", "Git evidence"));
     if (receipt.pr) proof.append(revision("Reviewed commit", receipt.reviewed_sha), revision("Merged commit", receipt.merge_sha));
     else proof.append(revision("Linked commit", receipt.commit));
-    for (const release of receipt.releases) {
+    for (const release of [staged, ...receipt.releases.filter(r => r !== staged)].filter(Boolean)) {
       const entry = el("div", null, "receipt-release");
       entry.append(el("strong", release.environment), el("span", release.current ? "Current publication" : "Earlier publication"));
       const date = el("time", release.published_at + " UTC");
       date.dateTime = release.published_at.replace(" ", "T") + "Z";
       entry.append(date, el("code", release.published_sha.slice(0, 12)));
       const links = el("div", null, "receipt-links");
-      for (const [label, url] of [["Published archive", release.archive_url], ["Site at this revision", release.site_url], ["Open site", release.environment_url]]) {
+      for (const [label, url] of [["Published archive", release.archive_url], ["Open site", release.site_url], ["Current environment", release.environment_url]]) {
         if (!url) continue;
         const link = el("a", label);
         link.href = url;
@@ -1744,21 +1756,57 @@ function releaseReceipts(node) {
     card.append(proof);
     return card;
   }
-  async function load() {
+  function candidateRow(candidate) {
+    const row = el("div", null, "receipt-candidate");
+    const review = el("a", candidate.repo + " · " + (candidate.pr ? "PR #" + candidate.pr + " · " + candidate.title : candidate.source_branch));
+    review.href = candidate.review_url || candidate.branch_url;
+    row.append(review);
+    if (candidate.conflicting_keys.length) row.append(el("small", "Also mentions " + candidate.conflicting_keys.join(", "), "detail-info"));
+    if (candidate.pr && mayEdit()) {
+      const choose = button("Link this PR", "btn", async () => {
+        choose.disabled = true;
+        try {
+          const change = await request(workspace, "/changes", "PUT", {
+            repository: "weftgit:" + candidate.repo, external_id: "pr:" + candidate.pr, title: candidate.title,
+          });
+          await request(workspace, "/links", "POST", {kind:"implements", source:change.id, target:node.id});
+          if (workspace === state.workspace && section.isConnected) {
+            await load(workspace);
+            if (section.isConnected && $("#dialog").open) showDetails(node.id);
+          }
+        } catch (error) {
+          status.textContent = error.message;
+          choose.disabled = false;
+        }
+      });
+      row.append(choose);
+    }
+    return row;
+  }
+  async function refreshReceipts() {
     refresh.disabled = true;
     status.textContent = "Checking linked changes…";
     results.replaceChildren();
     try {
       const data = await request(workspace, "/work/" + node.id + "/release-receipts");
       results.replaceChildren(...data.receipts.map(renderReceipt));
-      status.textContent = data.receipts.length ? "" : "No WeftGit pull requests or commits linked yet.";
+      const discovery = data.discovery;
+      const explanations = {
+        workspace_collision: "This task key exists in another workspace. Link its pull request to identify the delivery.",
+        unavailable: "WeftGit is unavailable. Refresh receipts to check again.",
+        no_match: "No matching pull request yet. Include " + key(node) + " in the branch name or pull request title.",
+        ambiguous: "The task key has conflicting matches. Check the branch and pull request before linking.",
+        branch: "Branch found · No pull request yet",
+      };
+      status.textContent = explanations[discovery?.state] || (data.receipts.length ? "" : "No WeftGit pull requests or commits linked yet.");
+      for (const candidate of discovery?.matches || []) results.append(candidateRow(candidate));
     } catch {
       status.textContent = "Could not load release receipts. Refresh to try again.";
     } finally {
       refresh.disabled = false;
     }
   }
-  load();
+  refreshReceipts();
   return section;
 }
 
@@ -1774,6 +1822,7 @@ function showDetails(id) {
     meta.append(status);
   }
   content.append(meta, el("h3", node.title, "detail-title"));
+  if (node.kind === "work") content.append(releaseReceipts(node));
   if (node.kind === "change") {
     content.append(el("p", node.repository + " / " + node.external_id, "detail-info"));
     const repo = /^weftgit:([a-z0-9][a-z0-9_-]{0,63}\/[a-z0-9][a-z0-9_-]{0,63})$/i.exec(node.repository);
@@ -1826,7 +1875,7 @@ function showDetails(id) {
   linkActions.append(copyLink);
   content.append(linkActions);
   if (node.kind !== "work") return;
-  content.append(releaseReceipts(node), assistantTools(node, permalink));
+  content.append(assistantTools(node, permalink));
   if (!mayEdit()) {
     if (settings.actor) content.append(itemActivity(node));
     return;

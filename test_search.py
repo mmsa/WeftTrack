@@ -5,7 +5,7 @@ from contextlib import closing
 import tempfile
 import unittest
 
-from app import MANAGEMENT_SCHEMA, dispatch, initialize, project_database, search_workspaces
+from app import MANAGEMENT_SCHEMA, dispatch, initialize, project_database, search_workspaces, unique_work_key
 
 
 class SearchTests(unittest.TestCase):
@@ -25,6 +25,18 @@ class SearchTests(unittest.TestCase):
         self.catalog.executescript(MANAGEMENT_SCHEMA)
         self.catalog.executemany("INSERT INTO projects VALUES (?,?,?)", [("a", "Live", 0), ("b", "Archived", 1)])
         self.catalog.commit()
+
+    def test_discovery_keys_include_archived_projects_and_exclude_the_sample(self):
+        self.assertFalse(unique_work_key(self.catalog, project_database("a"), 1))
+        def add_work(path):
+            with closing(sqlite3.connect(path)) as db, db:
+                db.row_factory = sqlite3.Row
+                dispatch(db, "POST", "/work", {"title": "Second task"})
+        add_work(project_database("a"))
+        add_work("wefttrack-example.sqlite3")
+        self.assertTrue(unique_work_key(self.catalog, project_database("a"), 2))
+        add_work(project_database("b"))
+        self.assertFalse(unique_work_key(self.catalog, project_database("a"), 2))
 
     def test_visibility_and_duplicate_keys(self):
         public = search_workspaces(self.catalog, None, "wt-1")

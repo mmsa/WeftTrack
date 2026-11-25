@@ -82,7 +82,11 @@ When submitting a claimed result, paste its **WeftGit pull request URL** to fill
 
 After a push, choose **Refresh commits**, then **Link task**. A single matching work key in the commit subject preselects the requirement. Open a linked WeftGit pull request from its change detail using a repository reference such as `weftgit:team/repo` and a change ID such as `pr:1`.
 
-Open a requirement’s **Release receipts** to check where its linked WeftGit changes shipped. Each verified receipt shows the environment, publication time in UTC, and downloadable archive. Expand **Git evidence** for the full revisions. A current publication with a site also links to the live environment. An earlier publication links to its archived revision.
+Include a task’s exact key, such as `WT-001`, in a branch name or PR title. Open the requirement to see the matching branch, PR, merge, or staging publication directly below its title. **Refresh receipts** checks for new changes. A real merge can show **Merged · Awaiting staging** before publication. After publication, **Open site** opens the snapshot for the displayed SHA.
+
+Automatic lookup reads the local Git host when the task key identifies one real workspace and one branch or PR. Duplicate keys across workspaces, multiple candidates, and conflicting task keys require an explicit PR link. The example workspace skips automatic lookup. An explicit linked PR always takes precedence.
+
+Open a requirement’s **Release receipts** to check where its WeftGit changes shipped. Each verified receipt shows the environment, publication time in UTC, and downloadable archive. Expand **Git evidence** for the full revisions. A current publication with a site also links to the live environment. An earlier publication links to its archived revision.
 
 For a linked PR, WeftGit verifies its merge record and checks for a later publication from the target branch containing the merged commit. For a linked commit, it checks whether the publication contains that exact commit in its Git history. A completed requirement or merged PR can still have no verified release. If WeftGit is offline, use **Refresh receipts** once it is running. WeftTrack queries WeftGit on loopback port 8091. Set `WEFTGIT_PORT` on WeftTrack to match a custom local receipt service port.
 
