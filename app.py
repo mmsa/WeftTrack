@@ -10,11 +10,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from http.cookies import SimpleCookie
-from urllib.parse import parse_qs, urlsplit
 from contextlib import closing
 from uuid import uuid4
 
 from example import seed_example
+from receipts import requirement_receipts, weftgit_port
 
 def repository_root(parent):
     configured = os.environ.get("WEFTGIT_REPOSITORIES") or os.environ.get("FREETHEGIT_REPOSITORIES")
@@ -104,7 +104,7 @@ def management(db, actor, method, path, data):
         projects = db.execute("SELECT * FROM projects WHERE NOT archived OR ? ORDER BY name",
                               (management_access,)) if actor else []
         members = db.execute("SELECT id, name, role FROM members ORDER BY name") if actor else []
-        return 200, {"actor": actor, "configured": bool(owner),
+        return 200, {"actor": actor, "configured": bool(owner), "weftgit_port": weftgit_port(),
                      "projects": [dict(row) for row in projects], "members": [dict(row) for row in members]}
     if method == "POST" and path == "/access":
         code = required(data, "code")
@@ -468,6 +468,9 @@ def dispatch(db, method, path, data, actor="Local owner", member="local-owner", 
         return 200, {}
     if method == "POST" and path.startswith("/claims/"):
         return pull_work(db, path, data, actor, member, source, role)
+    receipt = re.fullmatch(r"/work/([^/]+)/release-receipts", path)
+    if method == "GET" and receipt:
+        return 200, requirement_receipts(db, receipt[1])
     work_read = re.fullmatch(r"/work/([^/]+)", path)
     if method == "GET" and work_read:
         item = db.execute("SELECT rowid AS number,* FROM nodes WHERE id=? AND kind='work'", (work_read[1],)).fetchone()
@@ -669,7 +672,7 @@ class Handler(BaseHTTPRequestHandler):
                         settings.execute("BEGIN" if self.command == "GET" else "BEGIN IMMEDIATE")
                         status, result = management(settings, actor, self.command, path, data)
                 else:
-                    public_example_read = example and self.command == "GET" and (path == "/graph" or re.fullmatch(r"/work/[^/]+", path))
+                    public_example_read = example and self.command == "GET" and (path == "/graph" or re.fullmatch(r"/work/[^/]+(?:/release-receipts)?", path))
                     if not actor and not public_example_read:
                         raise PermissionError("Sign in to access this workspace")
                     database = "wefttrack-example.sqlite3" if example else "wefttrack.sqlite3"
