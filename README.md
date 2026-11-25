@@ -1,16 +1,18 @@
 # WeftTrack
 
-![WeftTrack delivery board showing export work across Open, In progress, In review and Done](docs/preview.png)
+A local-first work tracker for people and coding agents. Capture a requirement, see what blocks it, and claim the next item you can start. The review stays linked to the requirement and the code that implements it.
 
-A local-first work queue for people and coding agents. Write a requirement, see what blocks it, and claim the next item you can start. When the work is ready for review, its result and code change stay attached to the original requirement.
+[Quickstart](#quickstart) · [Using the queue](#using-the-queue) · [Agent CLI](#agent-cli) · [JSON API](#json-api) · [Tests](#tests)
 
-[Quickstart](#quickstart) · [Using the queue](#using-the-queue) · [Agent CLI](#agent-cli) · [FreeTheGit](#freethegit) · [JSON API](#json-api) · [Tests](#tests)
+![WeftTrack delivery board showing requirements, blockers, and linked changes across four stages](docs/preview.png)
 
 ## Quickstart
 
-From the repository root, run the server with Python 3.9+ and SQLite 3.24+. WeftTrack uses Python’s standard library and serves its web interface directly.
+You need Python 3.9+ with SQLite 3.24+ and a browser. WeftTrack uses the Python standard library.
 
 ```sh
+git clone https://github.com/mmsa/WeftTrack.git
+cd WeftTrack
 python3 app.py
 ```
 
@@ -60,6 +62,8 @@ python3 agent.py report CLAIM_ID \
 Use `python3 agent.py release CLAIM_ID` to return unfinished work. To choose another workspace, place `--workspace example` or `--workspace PROJECT_ID` before the command. Repeating a claim request resumes your active claim.
 
 ## FreeTheGit
+
+Pair WeftTrack with its companion local Git host to follow a requirement into code review. [FreeTheGit on GitHub](https://github.com/mmsa/freethegit)
 
 **Code changes** reads the 20 most recent commits across refs in each locally hosted FreeTheGit repository. Install Git for this integration. The default repository root is `../freethegit/.repositories` relative to the WeftTrack source. To choose another directory, set `FREETHEGIT_REPOSITORIES` when starting WeftTrack.
 
