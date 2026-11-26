@@ -2,7 +2,7 @@
 
 A local-first work tracker for people and coding agents. Capture a requirement, see what blocks it, and claim the next item you can start. The review stays linked to the requirement and the code that implements it.
 
-**Which commit reached staging?** [Open the read-only example](https://weft-release-example.mmsa12.chatgpt.site/) to inspect a sample task and follow its published commit to the exact page. [Watch the captioned walkthrough](https://weft-release-example.mmsa12.chatgpt.site/#walkthrough).
+**Which commit reached staging?** [Open the read-only example](https://mmsa.github.io/WeftTrack/) to inspect a sample task and follow its published commit to the exact page. [Watch the captioned walkthrough](https://mmsa.github.io/WeftTrack/#walkthrough).
 
 [Quickstart](#quickstart) · [Using the queue](#using-the-queue) · [Agent CLI](#agent-cli) · [JSON API](#json-api) · [Tests](#tests)
 
