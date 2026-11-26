@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.040
+The pull request is merged and awaiting staging.
+
+00:00:04.040 --> 00:00:08.680
+Publish the reviewed revision from main to staging.
+
+00:00:08.680 --> 00:00:14.320
+Refresh the task to verify its staging receipt.
+
+00:00:14.320 --> 00:00:19.760
+Open the published guide at the exact Git revision.

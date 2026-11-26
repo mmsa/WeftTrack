@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f5f1"><meta name="description" content="Inspect one real WeftTrack requirement before and after a WeftGit staging publication.">
+  <title>From task to staging · WeftTrack</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="top"><div class="top-inner"><a href="./" class="brand"><span class="weave" aria-hidden="true"></span>WeftTrack</a><nav aria-label="Example navigation"><a href="#walkthrough">Watch demo</a><a href="https://github.com/mmsa/WeftTrack">GitHub</a></nav></div></header>
+  <main>
+    <header class="intro"><p class="eyebrow">Interactive example</p><h1>From task to staging.</h1><p>Inspect one requirement before and after its release. Both states come from the same recorded run.</p></header>
+    <section class="split" aria-label="Explore the release">
+      <div class="timeline"><h2>Release timeline</h2>
+        <fieldset><legend class="sr">Choose which point in the release to inspect</legend>
+          <label><input type="radio" name="phase" value="awaiting" checked><span class="step"><span class="marker"></span><span><strong>Awaiting staging</strong><small>After the merge</small></span></span></label>
+          <label><input type="radio" name="phase" value="published"><span class="step"><span class="marker"></span><span><strong>Published</strong><small>After staging publication</small></span></span></label>
+        </fieldset>
+      </div>
+      <article class="task" aria-labelledby="task-title">
+        <div class="task-top"><span class="task-key" id="key"></span><span class="read-only">Read-only example</span></div>
+        <h2 id="task-title"></h2>
+        <section class="receipt" aria-label="Release receipt"><div class="statusline"><span class="status-icon" aria-hidden="true">✓</span><div><p class="overline">Release receipt</p><h3 id="status" aria-live="polite">Merged · Awaiting staging</h3></div></div>
+          <p id="explanation"></p><div class="pub-actions" id="published" hidden><a id="open-site" class="button">Open site</a><span>Published <code id="short"></code></span></div>
+        </section>
+        <dl class="context"><div><dt>Pull request</dt><dd id="review"></dd></div><div><dt>Source branch</dt><dd><code id="branch"></code></dd></div><div><dt>Merge target</dt><dd><code id="target"></code></dd></div></dl>
+        <details id="proof"><summary>Git evidence</summary><dl id="details"></dl></details>
+      </article>
+    </section>
+    <section id="walkthrough" class="walkthrough"><div><p class="eyebrow">Recorded walkthrough</p><h2>See it in the apps.</h2><p>Follow the task in WeftTrack, review the change in WeftGit, then open the exact release from its receipt.</p></div><div><video controls playsinline preload="metadata" poster="./media/poster.jpg" aria-label="Task to staging walkthrough"><source src="./media/requirement-to-staging.mp4" type="video/mp4"><track label="English" kind="captions" srclang="en" src="./media/captions.vtt"></video><a class="clip-link" href="./media/requirement-to-staging.mp4">Download the walkthrough</a></div></section>
+  </main><footer><strong>WeftTrack &amp; WeftGit</strong><div><a href="https://github.com/mmsa/WeftTrack/issues">Give feedback</a><a href="https://github.com/mmsa/WeftTrack">WeftTrack source</a><a href="https://github.com/mmsa/WeftGit">WeftGit source</a></div></footer>
+  <script src="./fixture.js"></script><script src="./app.js"></script>
+</body></html>
